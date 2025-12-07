@@ -1,0 +1,552 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignalR Chat Test - NobyHub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status.disconnected {
+            background: #e74c3c;
+        }
+
+        .status.connecting {
+            background: #f39c12;
+        }
+
+        .status.connected {
+            background: #27ae60;
+        }
+
+        .controls {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .control-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-connect {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-connect:hover:not(:disabled) {
+            background: #229954;
+        }
+
+        .btn-disconnect {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-disconnect:hover:not(:disabled) {
+            background: #c0392b;
+        }
+
+        .btn-send {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-send:hover:not(:disabled) {
+            background: #2980b9;
+        }
+
+        .btn-clear {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-clear:hover:not(:disabled) {
+            background: #7f8c8d;
+        }
+
+        .messages {
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .message {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #3498db;
+            background: #ecf0f1;
+            border-radius: 5px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+
+        .message-content {
+            color: #2c3e50;
+            word-wrap: break-word;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #95a5a6;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .log {
+            padding: 15px 20px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+
+        .log-entry.error {
+            color: #e74c3c;
+        }
+
+        .log-entry.success {
+            color: #2ecc71;
+        }
+
+        .log-entry.warning {
+            color: #f39c12;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 20px;
+            background: #ecf0f1;
+            border-top: 1px solid #ddd;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+
+        .info-banner {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+
+        .test-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .test-section h3 {
+            margin: 0 0 10px 0;
+            color: #856404;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SignalR Chat Test - NobyHub</h1>
+            <span id="status" class="status disconnected">Disconnected</span>
+        </div>
+
+        <div class="controls">
+            <div class="info-banner">
+                This page uses cookie-based authentication. Make sure you're logged in before connecting.
+            </div>
+
+            <div class="control-group">
+                <label for="hubUrl">Hub URL:</label>
+                <input type="text" id="hubUrl" value="/api/nobyhub" placeholder="Enter hub URL">
+            </div>
+
+            <div class="button-group">
+                <button id="connectBtn" class="btn-connect" onclick="connect()">Connect</button>
+                <button id="disconnectBtn" class="btn-disconnect" onclick="disconnect()" disabled>Disconnect</button>
+            </div>
+
+            <div class="test-section">
+                <h3>Send Test Message to User</h3>
+                <div class="control-group" style="margin-bottom: 10px;">
+                    <label for="userIdInput">User ID (to send message to):</label>
+                    <input type="number" id="userIdInput" placeholder="Enter user ID" min="1">
+                </div>
+                <div class="button-group" style="margin-top: 10px;">
+                    <button id="sendBtn" class="btn-send" onclick="sendTestMessage()">Send Test Message via API</button>
+                    <button class="btn-clear" onclick="clearMessages()">Clear Messages</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="messageCount">0</div>
+                <div class="stat-label">Messages Received</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="connectionTime">--:--:--</div>
+                <div class="stat-label">Connected Time</div>
+            </div>
+        </div>
+
+        <div class="messages" id="messagesContainer">
+            <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <p>No messages yet. Connect to start receiving messages.</p>
+            </div>
+        </div>
+
+        <div class="log" id="logContainer">
+            <div class="log-entry">Ready to connect...</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script>
+        let connection = null;
+        let messageCount = 0;
+        let connectionStartTime = null;
+        let connectionTimer = null;
+
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateStatus(status, text) {
+            const statusElement = document.getElementById('status');
+            statusElement.className = `status ${status}`;
+            statusElement.textContent = text;
+        }
+
+        function updateConnectionTime() {
+            if (connectionStartTime) {
+                const elapsed = Math.floor((Date.now() - connectionStartTime) / 1000);
+                const hours = Math.floor(elapsed / 3600).toString().padStart(2, '0');
+                const minutes = Math.floor((elapsed % 3600) / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('connectionTime').textContent = `${hours}:${minutes}:${seconds}`;
+            }
+        }
+
+        async function connect() {
+            const hubUrl = document.getElementById('hubUrl').value;
+
+            log('Connecting to SignalR hub using cookie authentication...', 'info');
+            updateStatus('connecting', 'Connecting...');
+
+            // Connection options - authentication via cookies
+            const options = {
+                skipNegotiation: false,
+                transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents | signalR.HttpTransportType.LongPolling,
+                withCredentials: true  // Include cookies in requests
+            };
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl(hubUrl, options)
+                .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+                .configureLogging(signalR.LogLevel.Information)
+                .build();
+
+            // Handle incoming messages - ReceiveChatResponse
+            connection.on('ReceiveChatResponse', (message) => {
+                log(`Received: ReceiveChatResponse("${message}")`, 'success');
+                addMessage(message);
+            });
+
+            // Connection lifecycle events
+            connection.onclose((error) => {
+                log(`Connection closed${error ? ': ' + error : ''}`, 'error');
+                updateStatus('disconnected', 'Disconnected');
+                updateButtons(false);
+                stopConnectionTimer();
+            });
+
+            connection.onreconnecting((error) => {
+                log(`Reconnecting${error ? ': ' + error : ''}`, 'warning');
+                updateStatus('connecting', 'Reconnecting...');
+            });
+
+            connection.onreconnected((connectionId) => {
+                log(`Reconnected! ConnectionId: ${connectionId}`, 'success');
+                updateStatus('connected', 'Connected');
+            });
+
+            try {
+                await connection.start();
+                log(`Connected successfully! ConnectionId: ${connection.connectionId}`, 'success');
+                updateStatus('connected', 'Connected');
+                updateButtons(true);
+                startConnectionTimer();
+            } catch (err) {
+                log(`Connection failed: ${err}`, 'error');
+                updateStatus('disconnected', 'Connection Failed');
+                
+                // Check if it's an authentication error
+                if (err.toString().includes('401') || err.toString().includes('Unauthorized')) {
+                    log('Authentication failed - please log in to the application first', 'error');
+                }
+                
+                console.error(err);
+            }
+        }
+
+        async function disconnect() {
+            if (connection) {
+                try {
+                    await connection.stop();
+                    log('Disconnected by user', 'info');
+                    updateStatus('disconnected', 'Disconnected');
+                    updateButtons(false);
+                    stopConnectionTimer();
+                } catch (err) {
+                    log(`Disconnect failed: ${err}`, 'error');
+                    console.error(err);
+                }
+            }
+        }
+
+        async function sendTestMessage() {
+            const userId = document.getElementById('userIdInput').value;
+            
+            if (!userId || userId <= 0) {
+                log('Please enter a valid User ID', 'warning');
+                return;
+            }
+
+            try {
+                log(`Calling API: GET /api/v1/test/signalr/send-to-user?userId=${userId}`, 'info');
+                
+                const response = await fetch(`/api/v1/test/signalr/send-to-user?userId=${userId}`, {
+                    method: 'GET',
+                    credentials: 'include',  // Include cookies
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    log(`Test message sent successfully to user ${userId}`, 'success');
+                    log('If you are connected as that user, you should see the message appear above', 'info');
+                } else {
+                    const errorText = await response.text();
+                    log(`API call failed: ${response.status} ${response.statusText} - ${errorText}`, 'error');
+                }
+            } catch (err) {
+                log(`API call error: ${err}`, 'error');
+                console.error(err);
+            }
+        }
+
+        function addMessage(content) {
+            const container = document.getElementById('messagesContainer');
+            
+            // Remove empty state if present
+            if (container.querySelector('.empty-state')) {
+                container.innerHTML = '';
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString();
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(timeDiv);
+            messageDiv.appendChild(contentDiv);
+            container.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+            
+            // Update counter
+            messageCount++;
+            document.getElementById('messageCount').textContent = messageCount;
+        }
+
+        function clearMessages() {
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <p>No messages yet. Connect to start receiving messages.</p>
+                </div>
+            `;
+            messageCount = 0;
+            document.getElementById('messageCount').textContent = '0';
+            log('Messages cleared', 'info');
+        }
+
+        function updateButtons(connected) {
+            document.getElementById('connectBtn').disabled = connected;
+            document.getElementById('disconnectBtn').disabled = !connected;
+            // Send button doesn't depend on connection - it calls the REST API
+        }
+
+        function startConnectionTimer() {
+            connectionStartTime = Date.now();
+            connectionTimer = setInterval(updateConnectionTime, 1000);
+        }
+
+        function stopConnectionTimer() {
+            if (connectionTimer) {
+                clearInterval(connectionTimer);
+                connectionTimer = null;
+            }
+            connectionStartTime = null;
+            document.getElementById('connectionTime').textContent = '--:--:--';
+        }
+
+        // Handle Enter key in user ID input
+        document.getElementById('userIdInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendTestMessage();
+            }
+        });
+
+        // Handle Enter key in hub URL
+        document.getElementById('hubUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                connect();
+            }
+        });
+
+        // Log page load
+        log('SignalR test page loaded', 'success');
+        log('Authentication will use existing cookies', 'info');
+    </script>
+</body>
+</html>

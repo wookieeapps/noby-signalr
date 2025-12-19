@@ -505,7 +505,7 @@
 
             // Handle incoming chat responses
             connection.on('ReceiveChatResponse', (chatId, message) => {
-                log(`Received chunk for chat ${chatId}: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`, 'success');
+                log(`Received chunk for chat ${chatId}: "${message}"`, 'success');
                 handleChatResponse(chatId, message);
             });
 
@@ -573,6 +573,9 @@
             }
 
             showLoading(true);
+
+            // Clear the message input
+            document.getElementById('messageInput').value = '';
 
             // Add user message to chat
             addUserMessage(messageText);

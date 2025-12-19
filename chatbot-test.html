@@ -518,9 +518,9 @@
                 .build();
 
             // Handle incoming chat responses
-            connection.on('ReceiveChatResponse', (chatId, message, isComplete) => {
-                log(`Received ${isComplete ? 'FINAL' : 'chunk'} for chat ${chatId}: "${message}"`, isComplete ? 'success' : 'info');
-                handleChatResponse(chatId, message, isComplete);
+            connection.on('ReceiveChatResponse', (chatId, messageId, content, isFinal) => {
+                log(`Received ${isFinal ? 'FINAL' : 'chunk'} for chat ${chatId}, message ${messageId}: "${content}"`, isFinal ? 'success' : 'info');
+                handleChatResponse(chatId, messageId, content, isFinal);
             });
 
             connection.onclose((error) => {
@@ -680,7 +680,7 @@
             isTyping = false;
         }
 
-        function handleChatResponse(chatId, message, isComplete) {
+        function handleChatResponse(chatId, messageId, content, isFinal) {
             // Update chunk counter
             chunkCount++;
             document.getElementById('chunkCount').textContent = chunkCount;
@@ -695,9 +695,12 @@
                 const contentDiv = currentAssistantMessage.querySelector('.message-content');
                 const statusDiv = currentAssistantMessage.querySelector('.message-status');
                 
-                if (isComplete) {
+                // Store messageId on the message element
+                currentAssistantMessage.dataset.messageId = messageId;
+                
+                if (isFinal) {
                     // Only show the final message with typewriter effect
-                    pendingText = message;
+                    pendingText = content;
                     processTypingQueue(contentDiv);
                     
                     // Wait for typing to finish, then mark as complete
@@ -707,7 +710,7 @@
                             
                             currentAssistantMessage.classList.remove('streaming');
                             currentAssistantMessage.classList.add('complete');
-                            statusDiv.textContent = '✓ Complete';
+                            statusDiv.textContent = `✓ Complete (ID: ${messageId})`;
                             
                             document.getElementById('chatStatus').textContent = '✓ Response complete';
                             document.getElementById('chatStatus').className = 'chat-info-value final';
@@ -715,14 +718,14 @@
                             messageCount++;
                             document.getElementById('messageCount').textContent = messageCount;
                             
-                            log(`Final response received for chat ${chatId}`, 'success');
+                            log(`Final response received for chat ${chatId}, message ${messageId}`, 'success');
                             
                             currentAssistantMessage = null;
                         }
                     }, 100);
                 } else {
                     // Just update status for non-final chunks (don't display them)
-                    statusDiv.textContent = 'Streaming...';
+                    statusDiv.textContent = `Streaming... (ID: ${messageId})`;
                 }
             }
 

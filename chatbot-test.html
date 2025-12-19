@@ -472,7 +472,7 @@
         let currentAssistantMessage = null;
         let pendingText = '';
         let isTyping = false;
-        const typingSpeed = 15; // milliseconds per character
+        const typingSpeed = 5; // milliseconds per character
 
         function log(message, type = 'info') {
             const logContainer = document.getElementById('logContainer');
@@ -695,11 +695,11 @@
                 const contentDiv = currentAssistantMessage.querySelector('.message-content');
                 const statusDiv = currentAssistantMessage.querySelector('.message-status');
                 
-                // Add message to pending queue for typewriter effect
-                pendingText += message;
-                processTypingQueue(contentDiv);
-                
                 if (isComplete) {
+                    // Only show the final message with typewriter effect
+                    pendingText = message;
+                    processTypingQueue(contentDiv);
+                    
                     // Wait for typing to finish, then mark as complete
                     const checkTypingComplete = setInterval(() => {
                         if (!isTyping && pendingText.length === 0) {
@@ -721,6 +721,7 @@
                         }
                     }, 100);
                 } else {
+                    // Just update status for non-final chunks (don't display them)
                     statusDiv.textContent = 'Streaming...';
                 }
             }

@@ -244,6 +244,17 @@
             white-space: pre-wrap;
         }
 
+        .message-content.typing::after {
+            content: '▋';
+            animation: blink 1s step-end infinite;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
         .message-status {
             font-size: 10px;
             margin-top: 5px;
@@ -459,6 +470,9 @@
         let connectionTimer = null;
         let currentChatId = null;
         let currentAssistantMessage = null;
+        let pendingText = '';
+        let isTyping = false;
+        const typingSpeed = 15; // milliseconds per character
 
         function log(message, type = 'info') {
             const logContainer = document.getElementById('logContainer');
@@ -504,9 +518,9 @@
                 .build();
 
             // Handle incoming chat responses
-            connection.on('ReceiveChatResponse', (chatId, message) => {
-                log(`Received chunk for chat ${chatId}: "${message}"`, 'success');
-                handleChatResponse(chatId, message);
+            connection.on('ReceiveChatResponse', (chatId, message, isComplete) => {
+                log(`Received ${isComplete ? 'FINAL' : 'chunk'} for chat ${chatId}: "${message}"`, isComplete ? 'success' : 'info');
+                handleChatResponse(chatId, message, isComplete);
             });
 
             connection.onclose((error) => {
@@ -630,7 +644,43 @@
             }
         }
 
-        function handleChatResponse(chatId, message) {
+        function typeText(contentDiv, text) {
+            return new Promise(async (resolve) => {
+                for (let i = 0; i < text.length; i++) {
+                    if (contentDiv.textContent === 'Waiting for response...') {
+                        contentDiv.textContent = '';
+                    }
+                    contentDiv.textContent += text[i];
+                    
+                    // Scroll to bottom
+                    const container = document.getElementById('messagesContainer');
+                    container.scrollTop = container.scrollHeight;
+                    
+                    await new Promise(resolve => setTimeout(resolve, typingSpeed));
+                }
+                resolve();
+            });
+        }
+
+        async function processTypingQueue(contentDiv) {
+            if (isTyping) return;
+            isTyping = true;
+            
+            // Add typing cursor
+            contentDiv.classList.add('typing');
+            
+            while (pendingText.length > 0) {
+                const textToType = pendingText;
+                pendingText = '';
+                await typeText(contentDiv, textToType);
+            }
+            
+            // Remove typing cursor when done
+            contentDiv.classList.remove('typing');
+            isTyping = false;
+        }
+
+        function handleChatResponse(chatId, message, isComplete) {
             // Update chunk counter
             chunkCount++;
             document.getElementById('chunkCount').textContent = chunkCount;
@@ -641,36 +691,35 @@
                 return;
             }
 
-            // Check if this looks like a final message (complete response)
-            // The final message typically contains the full response
-            const isFinalMessage = message.length > 100 || message.includes('\n');
-
             if (currentAssistantMessage) {
-                // Update existing message
                 const contentDiv = currentAssistantMessage.querySelector('.message-content');
                 const statusDiv = currentAssistantMessage.querySelector('.message-status');
                 
-                // For streaming, we replace the content with each chunk
-                // (assuming the API sends cumulative content or we need to append)
-                contentDiv.textContent = message;
+                // Add message to pending queue for typewriter effect
+                pendingText += message;
+                processTypingQueue(contentDiv);
                 
-                if (isFinalMessage) {
-                    // Mark as complete
-                    currentAssistantMessage.classList.remove('streaming');
-                    currentAssistantMessage.classList.add('complete');
-                    statusDiv.textContent = '? Complete';
-                    
-                    document.getElementById('chatStatus').textContent = '? Response complete';
-                    document.getElementById('chatStatus').className = 'chat-info-value final';
-                    
-                    // Update message counter
-                    messageCount++;
-                    document.getElementById('messageCount').textContent = messageCount;
-                    
-                    log(`Final response received for chat ${chatId}`, 'success');
-                    
-                    // Reset for next message
-                    currentAssistantMessage = null;
+                if (isComplete) {
+                    // Wait for typing to finish, then mark as complete
+                    const checkTypingComplete = setInterval(() => {
+                        if (!isTyping && pendingText.length === 0) {
+                            clearInterval(checkTypingComplete);
+                            
+                            currentAssistantMessage.classList.remove('streaming');
+                            currentAssistantMessage.classList.add('complete');
+                            statusDiv.textContent = '✓ Complete';
+                            
+                            document.getElementById('chatStatus').textContent = '✓ Response complete';
+                            document.getElementById('chatStatus').className = 'chat-info-value final';
+                            
+                            messageCount++;
+                            document.getElementById('messageCount').textContent = messageCount;
+                            
+                            log(`Final response received for chat ${chatId}`, 'success');
+                            
+                            currentAssistantMessage = null;
+                        }
+                    }, 100);
                 } else {
                     statusDiv.textContent = 'Streaming...';
                 }

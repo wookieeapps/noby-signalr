@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot API Test - NOBY</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status.disconnected {
+            background: #e74c3c;
+        }
+
+        .status.connecting {
+            background: #f39c12;
+        }
+
+        .status.connected {
+            background: #27ae60;
+        }
+
+        .controls {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .control-group input,
+        .control-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .control-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-connect {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-connect:hover:not(:disabled) {
+            background: #229954;
+        }
+
+        .btn-disconnect {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-disconnect:hover:not(:disabled) {
+            background: #c0392b;
+        }
+
+        .btn-send {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-send:hover:not(:disabled) {
+            background: #2980b9;
+        }
+
+        .btn-clear {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-clear:hover:not(:disabled) {
+            background: #7f8c8d;
+        }
+
+        .chat-info {
+            padding: 15px 20px;
+            background: #e8f4fd;
+            border-bottom: 1px solid #bee5eb;
+            display: none;
+        }
+
+        .chat-info.visible {
+            display: block;
+        }
+
+        .chat-info-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+
+        .chat-info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .chat-info-label {
+            font-weight: 600;
+            color: #0c5460;
+            min-width: 100px;
+        }
+
+        .chat-info-value {
+            color: #0c5460;
+            word-break: break-all;
+        }
+
+        .chat-info-value.final {
+            color: #27ae60;
+            font-weight: 600;
+        }
+
+        .messages {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+
+        .message {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            animation: slideIn 0.3s ease-out;
+            max-width: 85%;
+        }
+
+        .message.user {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 3px;
+        }
+
+        .message.assistant {
+            background: #ecf0f1;
+            color: #2c3e50;
+            border-bottom-left-radius: 3px;
+        }
+
+        .message.streaming {
+            border-left: 3px solid #f39c12;
+        }
+
+        .message.complete {
+            border-left: 3px solid #27ae60;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .message-content {
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message-status {
+            font-size: 10px;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #95a5a6;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .log {
+            padding: 15px 20px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+
+        .log-entry.error {
+            color: #e74c3c;
+        }
+
+        .log-entry.success {
+            color: #2ecc71;
+        }
+
+        .log-entry.warning {
+            color: #f39c12;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 20px;
+            background: #ecf0f1;
+            border-top: 1px solid #ddd;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+
+        .info-banner {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+
+        .chat-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .chat-section h3 {
+            margin: 0 0 10px 0;
+            color: #856404;
+            font-size: 14px;
+        }
+
+        .loading-indicator {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .loading-indicator.visible {
+            display: flex;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>?? Chatbot API Test - NOBY</h1>
+            <span id="status" class="status disconnected">SignalR Disconnected</span>
+        </div>
+
+        <div class="controls">
+            <div class="info-banner">
+                This page uses cookie-based authentication. Make sure you're logged in before connecting.
+            </div>
+
+            <div class="control-group">
+                <label for="hubUrl">SignalR Hub URL:</label>
+                <input type="text" id="hubUrl" value="/api/nobyhub" placeholder="Enter hub URL">
+            </div>
+
+            <div class="button-group">
+                <button id="connectBtn" class="btn-connect" onclick="connect()">Connect SignalR</button>
+                <button id="disconnectBtn" class="btn-disconnect" onclick="disconnect()" disabled>Disconnect</button>
+            </div>
+
+            <div class="chat-section">
+                <h3>?? Send Message to Chatbot</h3>
+                <div class="control-group">
+                    <label for="chatIdInput">Chat ID (optional - leave empty to create new chat):</label>
+                    <input type="text" id="chatIdInput" placeholder="Enter existing chat ID or leave empty">
+                </div>
+                <div class="control-group">
+                    <label for="messageInput">Message:</label>
+                    <textarea id="messageInput" placeholder="Type your message here...">Hello, how are you?</textarea>
+                </div>
+                <div class="button-group">
+                    <button id="sendBtn" class="btn-send" onclick="sendMessage()">Send Message</button>
+                    <button class="btn-clear" onclick="clearMessages()">Clear Chat</button>
+                </div>
+                <div class="loading-indicator" id="loadingIndicator">
+                    <div class="spinner"></div>
+                    <span>Sending message...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-info" id="chatInfo">
+            <div class="chat-info-row">
+                <span class="chat-info-label">Chat ID:</span>
+                <span class="chat-info-value" id="currentChatId">-</span>
+            </div>
+            <div class="chat-info-row">
+                <span class="chat-info-label">Chat Title:</span>
+                <span class="chat-info-value" id="currentChatTitle">-</span>
+            </div>
+            <div class="chat-info-row">
+                <span class="chat-info-label">Status:</span>
+                <span class="chat-info-value" id="chatStatus">Waiting for response...</span>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="messageCount">0</div>
+                <div class="stat-label">Messages Received</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="chunkCount">0</div>
+                <div class="stat-label">Chunks Received</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="connectionTime">--:--:--</div>
+                <div class="stat-label">Connected Time</div>
+            </div>
+        </div>
+
+        <div class="messages" id="messagesContainer">
+            <div class="empty-state">
+                <div class="empty-state-icon">??</div>
+                <p>No messages yet. Connect to SignalR and send a message to start chatting.</p>
+            </div>
+        </div>
+
+        <div class="log" id="logContainer">
+            <div class="log-entry">Ready to connect...</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script>
+        let connection = null;
+        let messageCount = 0;
+        let chunkCount = 0;
+        let connectionStartTime = null;
+        let connectionTimer = null;
+        let currentChatId = null;
+        let currentAssistantMessage = null;
+
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateStatus(status, text) {
+            const statusElement = document.getElementById('status');
+            statusElement.className = `status ${status}`;
+            statusElement.textContent = text;
+        }
+
+        function updateConnectionTime() {
+            if (connectionStartTime) {
+                const elapsed = Math.floor((Date.now() - connectionStartTime) / 1000);
+                const hours = Math.floor(elapsed / 3600).toString().padStart(2, '0');
+                const minutes = Math.floor((elapsed % 3600) / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('connectionTime').textContent = `${hours}:${minutes}:${seconds}`;
+            }
+        }
+
+        async function connect() {
+            const hubUrl = document.getElementById('hubUrl').value;
+
+            log('Connecting to SignalR hub...', 'info');
+            updateStatus('connecting', 'Connecting...');
+
+            const options = {
+                skipNegotiation: false,
+                transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents | signalR.HttpTransportType.LongPolling,
+                withCredentials: true
+            };
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl(hubUrl, options)
+                .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+                .configureLogging(signalR.LogLevel.Information)
+                .build();
+
+            // Handle incoming chat responses
+            connection.on('ReceiveChatResponse', (chatId, message) => {
+                log(`Received chunk for chat ${chatId}: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`, 'success');
+                handleChatResponse(chatId, message);
+            });
+
+            connection.onclose((error) => {
+                log(`Connection closed${error ? ': ' + error : ''}`, 'error');
+                updateStatus('disconnected', 'SignalR Disconnected');
+                updateButtons(false);
+                stopConnectionTimer();
+            });
+
+            connection.onreconnecting((error) => {
+                log(`Reconnecting${error ? ': ' + error : ''}`, 'warning');
+                updateStatus('connecting', 'Reconnecting...');
+            });
+
+            connection.onreconnected((connectionId) => {
+                log(`Reconnected! ConnectionId: ${connectionId}`, 'success');
+                updateStatus('connected', 'SignalR Connected');
+            });
+
+            try {
+                await connection.start();
+                log(`Connected successfully! ConnectionId: ${connection.connectionId}`, 'success');
+                updateStatus('connected', 'SignalR Connected');
+                updateButtons(true);
+                startConnectionTimer();
+            } catch (err) {
+                log(`Connection failed: ${err}`, 'error');
+                updateStatus('disconnected', 'Connection Failed');
+                
+                if (err.toString().includes('401') || err.toString().includes('Unauthorized')) {
+                    log('Authentication failed - please log in to the application first', 'error');
+                }
+                
+                console.error(err);
+            }
+        }
+
+        async function disconnect() {
+            if (connection) {
+                try {
+                    await connection.stop();
+                    log('Disconnected by user', 'info');
+                    updateStatus('disconnected', 'SignalR Disconnected');
+                    updateButtons(false);
+                    stopConnectionTimer();
+                } catch (err) {
+                    log(`Disconnect failed: ${err}`, 'error');
+                    console.error(err);
+                }
+            }
+        }
+
+        async function sendMessage() {
+            const messageText = document.getElementById('messageInput').value.trim();
+            const chatId = document.getElementById('chatIdInput').value.trim() || null;
+            
+            if (!messageText) {
+                log('Please enter a message', 'warning');
+                return;
+            }
+
+            if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+                log('Please connect to SignalR first to receive responses', 'warning');
+            }
+
+            showLoading(true);
+
+            // Add user message to chat
+            addUserMessage(messageText);
+
+            try {
+                const url = chatId 
+                    ? `/api/v1/chatbot/chats?chatId=${encodeURIComponent(chatId)}`
+                    : '/api/v1/chatbot/chats';
+
+                log(`Calling API: POST ${url}`, 'info');
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        communicationRequestText: messageText
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`API response: chatId=${data.chatId}, chatTitle=${data.chatTitle || '(existing chat)'}`, 'success');
+                    
+                    // Update chat info
+                    currentChatId = data.chatId;
+                    document.getElementById('currentChatId').textContent = data.chatId;
+                    document.getElementById('currentChatTitle').textContent = data.chatTitle || '(existing chat)';
+                    document.getElementById('chatStatus').textContent = 'Waiting for streaming response...';
+                    document.getElementById('chatStatus').className = 'chat-info-value';
+                    document.getElementById('chatInfo').classList.add('visible');
+                    
+                    // Update chat ID input for subsequent messages
+                    document.getElementById('chatIdInput').value = data.chatId;
+                    
+                    // Prepare for assistant response
+                    prepareAssistantMessage(data.chatId);
+                    
+                    log('Waiting for SignalR streaming response...', 'info');
+                } else {
+                    const errorText = await response.text();
+                    log(`API call failed: ${response.status} ${response.statusText} - ${errorText}`, 'error');
+                }
+            } catch (err) {
+                log(`API call error: ${err}`, 'error');
+                console.error(err);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function handleChatResponse(chatId, message) {
+            // Update chunk counter
+            chunkCount++;
+            document.getElementById('chunkCount').textContent = chunkCount;
+
+            // Check if this is for our current chat
+            if (chatId !== currentChatId) {
+                log(`Received message for different chat: ${chatId}`, 'warning');
+                return;
+            }
+
+            // Check if this looks like a final message (complete response)
+            // The final message typically contains the full response
+            const isFinalMessage = message.length > 100 || message.includes('\n');
+
+            if (currentAssistantMessage) {
+                // Update existing message
+                const contentDiv = currentAssistantMessage.querySelector('.message-content');
+                const statusDiv = currentAssistantMessage.querySelector('.message-status');
+                
+                // For streaming, we replace the content with each chunk
+                // (assuming the API sends cumulative content or we need to append)
+                contentDiv.textContent = message;
+                
+                if (isFinalMessage) {
+                    // Mark as complete
+                    currentAssistantMessage.classList.remove('streaming');
+                    currentAssistantMessage.classList.add('complete');
+                    statusDiv.textContent = '? Complete';
+                    
+                    document.getElementById('chatStatus').textContent = '? Response complete';
+                    document.getElementById('chatStatus').className = 'chat-info-value final';
+                    
+                    // Update message counter
+                    messageCount++;
+                    document.getElementById('messageCount').textContent = messageCount;
+                    
+                    log(`Final response received for chat ${chatId}`, 'success');
+                    
+                    // Reset for next message
+                    currentAssistantMessage = null;
+                } else {
+                    statusDiv.textContent = 'Streaming...';
+                }
+            }
+
+            // Scroll to bottom
+            const container = document.getElementById('messagesContainer');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addUserMessage(content) {
+            const container = document.getElementById('messagesContainer');
+            
+            // Remove empty state if present
+            if (container.querySelector('.empty-state')) {
+                container.innerHTML = '';
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString();
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(timeDiv);
+            messageDiv.appendChild(contentDiv);
+            container.appendChild(messageDiv);
+            
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function prepareAssistantMessage(chatId) {
+            const container = document.getElementById('messagesContainer');
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant streaming';
+            messageDiv.dataset.chatId = chatId;
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString();
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = 'Waiting for response...';
+            
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'message-status';
+            statusDiv.textContent = 'Waiting...';
+            
+            messageDiv.appendChild(timeDiv);
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(statusDiv);
+            container.appendChild(messageDiv);
+            
+            currentAssistantMessage = messageDiv;
+            
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearMessages() {
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">??</div>
+                    <p>No messages yet. Connect to SignalR and send a message to start chatting.</p>
+                </div>
+            `;
+            messageCount = 0;
+            chunkCount = 0;
+            currentChatId = null;
+            currentAssistantMessage = null;
+            document.getElementById('messageCount').textContent = '0';
+            document.getElementById('chunkCount').textContent = '0';
+            document.getElementById('chatIdInput').value = '';
+            document.getElementById('chatInfo').classList.remove('visible');
+            log('Chat cleared', 'info');
+        }
+
+        function showLoading(show) {
+            const indicator = document.getElementById('loadingIndicator');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (show) {
+                indicator.classList.add('visible');
+                sendBtn.disabled = true;
+            } else {
+                indicator.classList.remove('visible');
+                sendBtn.disabled = false;
+            }
+        }
+
+        function updateButtons(connected) {
+            document.getElementById('connectBtn').disabled = connected;
+            document.getElementById('disconnectBtn').disabled = !connected;
+        }
+
+        function startConnectionTimer() {
+            connectionStartTime = Date.now();
+            connectionTimer = setInterval(updateConnectionTime, 1000);
+        }
+
+        function stopConnectionTimer() {
+            if (connectionTimer) {
+                clearInterval(connectionTimer);
+                connectionTimer = null;
+            }
+            connectionStartTime = null;
+            document.getElementById('connectionTime').textContent = '--:--:--';
+        }
+
+        // Handle Enter key in message input (Ctrl+Enter to send)
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                sendMessage();
+            }
+        });
+
+        // Handle Enter key in chat ID input
+        document.getElementById('chatIdInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('messageInput').focus();
+            }
+        });
+
+        // Handle Enter key in hub URL
+        document.getElementById('hubUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                connect();
+            }
+        });
+
+        // Log page load
+        log('Chatbot test page loaded', 'success');
+        log('Press Ctrl+Enter in message box to send', 'info');
+    </script>
+</body>
+</html>
